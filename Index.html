@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>수면 부채 계산기 & 트래커</title>
+  <style>
+    :root {
+      --bg: #121316;
+      --card-bg: #1a1c22;
+      --card-border: #2a2d36;
+      --accent-red: #ff5b5b;
+      --accent-red-glow: rgba(255, 91, 91, 0.25);
+      --accent-green: #4ade80;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --font: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", Pretendard, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font);
+      padding: 24px 16px 60px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container { width: 100%; max-width: 680px; display: flex; flex-direction: column; gap: 20px; }
+    .top-card {
+      background: linear-gradient(145deg, #24181c, #1a1c22);
+      border: 2px solid var(--accent-red);
+      border-radius: 20px;
+      padding: 28px 20px;
+      text-align: center;
+      box-shadow: 0 8px 30px var(--accent-red-glow);
+    }
+    .top-card .label { font-size: 16px; font-weight: 700; color: #ff8585; margin-bottom: 8px; }
+    .top-card .debt-value { font-size: 42px; font-weight: 800; color: #ffffff; text-shadow: 0 2px 12px rgba(255, 91, 91, 0.4); }
+    .top-card .sub-info { font-size: 13px; color: var(--text-muted); margin-top: 10px; }
+    .chart-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; }
+    .chart-header h3 { font-size: 17px; font-weight: 700; }
+    .target-badge {
+      background: rgba(74, 222, 128, 0.15);
+      border: 1px solid var(--accent-green);
+      color: var(--accent-green);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .svg-container { width: 100%; height: 320px; position: relative; }
+    svg { width: 100%; height: 100%; overflow: visible; }
+    .axis-line { stroke: #ffffff; stroke-width: 2; }
+    .grid-line { stroke: #2e3340; stroke-width: 1; stroke-dasharray: 4, 4; }
+    .target-line { stroke: var(--accent-green); stroke-width: 1.5; stroke-dasharray: 3, 3; }
+    .trend-line { fill: none; stroke: var(--accent-red); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+    .area-fill { fill: url(#redGradient); opacity: 0.25; }
+    .dot { fill: var(--accent-red); stroke: #ffffff; stroke-width: 2; cursor: pointer; }
+    .axis-text { font-size: 11px; fill: var(--text-muted); font-family: var(--font); }
+    .axis-title { font-size: 13px; font-weight: 700; fill: #ffffff; font-family: var(--font); }
+    .val-bubble { fill: #2d171e; stroke: var(--accent-red); stroke-width: 1; rx: 6; ry: 6; }
+    .bubble-text { font-size: 10px; font-weight: 700; fill: #ffffff; text-anchor: middle; font-family: var(--font); }
+    .input-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 24px 20px;
+    }
+    .input-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: flex-end; }
+    @media (max-width: 600px) {
+      .form-grid { grid-template-columns: 1fr 1fr; }
+      .form-grid button { grid-column: span 2; }
+    }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: 12px; color: var(--text-muted); }
+    input {
+      background-color: #121316;
+      border: 1px solid #333742;
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      outline: none;
+      font-family: var(--font);
+    }
+    input:focus { border-color: var(--accent-red); }
+    button.btn-add {
+      background: var(--accent-red);
+      color: #ffffff;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      height: 42px;
+    }
+    button.btn-add:active { transform: scale(0.98); }
+    .history-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 20px;
+    }
+    .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .history-header h3 { font-size: 16px; font-weight: 700; }
+    .btn-reset {
+      background: none;
+      border: 1px solid #444a56;
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 10px 8px; color: var(--text-muted); border-bottom: 1px solid var(--card-border); font-weight: 600; }
+    td { padding: 10px 8px; border-bottom: 1px solid #232630; color: var(--text-main); }
+    .badge-deficit { color: #ff7b7b; font-weight: 600; }
+    .badge-surplus { color: var(--accent-green); font-weight: 600; }
+    .action-btn { color: #6b7280; cursor: pointer; background: none; border: none; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="top-card">
+      <div class="label">부채시간 (현재 누적)</div>
+      <div class="debt-value" id="currentDebtDisplay">9시간 34분</div>
+      <div class="sub-info">일일 목표 수면 시간: <strong>8시간</strong> 기준</div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>수면 부채 추이</h3>
+        <div class="target-badge">목표: 8시간/일</div>
+      </div>
+      <div class="svg-container">
+        <svg id="chartSvg" viewBox="0 0 600 300">
+          <defs>
+            <linearGradient id="redGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#ff5b5b" stop-opacity="0.4" />
+              <stop offset="100%" stop-color="#ff5b5b" stop-opacity="0.0" />
+            </linearGradient>
+          </defs>
+          <g id="chartContent"></g>
+        </svg>
+      </div>
+    </div>
+    <div class="input-card">
+      <h3>새 수면 기록 추가</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>날짜</label>
+          <input type="date" id="inputDate">
+        </div>
+        <div class="form-group">
+          <label>수면 시간 (시간)</label>
+          <input type="number" id="inputHours" min="0" max="24" value="7">
+        </div>
+        <div class="form-group">
+          <label>수면 시간 (분)</label>
+          <input type="number" id="inputMinutes" min="0" max="59" value="0">
+        </div>
+        <button class="btn-add" onclick="addRecord()">기록 추가</button>
+      </div>
+    </div>
+    <div class="history-card">
+      <div class="history-header">
+        <h3>일별 수면 기록 내역</h3>
+        <button class="btn-reset" onclick="resetToDefault()">초기화</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>날짜</th>
+            <th>수면</th>
+            <th>부채 변동</th>
+            <th>누적 부채</th>
+            <th>삭제</th>
+          </tr>
+        </thead>
+        <tbody id="historyTbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <script>
+    const DEFAULT_DATA = [
+      { date: '10/03', sleepMins: 416 },
+      { date: '10/04', sleepMins: 416 },
+      { date: '10/05', sleepMins: 307 },
+      { date: '10/06', sleepMins: 337 },
+      { date: '10/07', sleepMins: 407 },
+      { date: '10/08', sleepMins: 468 },
+      { date: '10/09', sleepMins: 435 }
+    ];
+    const TARGET_MINS = 8 * 60;
+    let records = [];
+    function init() {
+      const saved = localStorage.getItem('sleep_records_data');
+      records = saved ? JSON.parse(saved) : [...DEFAULT_DATA];
+      const today = new Date();
+      const nextDay = new Date(today);
+      nextDay.setDate(today.getDate() + 1);
+      document.getElementById('inputDate').value = nextDay.toISOString().split('T')[0];
+      render();
+    }
+    function save() { localStorage.setItem('sleep_records_data', JSON.stringify(records)); }
+    function resetToDefault() {
+      if (confirm('초기 데이터로 복원하시겠습니까?')) {
+        records = [...DEFAULT_DATA];
+        save();
+        render();
+      }
+    }
+    function addRecord() {
+      const dateVal = document.getElementById('inputDate').value;
+      const hoursVal = parseInt(document.getElementById('inputHours').value) || 0;
+      const minsVal = parseInt(document.getElementById('inputMinutes').value) || 0;
+      if (!dateVal) return alert('날짜를 선택하세요.');
+      const totalMins = (hoursVal * 60) + minsVal;
+      const parts = dateVal.split('-');
+      records.push({ date: `${parts[1]}/${parts[2]}`, sleepMins: totalMins });
+      save();
+      render();
+    }
+    function deleteRecord(idx) { records.splice(idx, 1); save(); render(); }
+    function formatTime(mins) {
+      const isNeg = mins < 0;
+      const absM = Math.abs(mins);
+      const h = Math.floor(absM / 60);
+      const m = absM % 60;
+      const str = `${h > 0 ? h + '시간 ' : ''}${m}분`;
+      return isNeg ? `-${str}` : str;
+    }
+    function render() {
+      let cumulative = 0;
+      const tableRows = [];
+      const chartPoints = [];
+      records.forEach((r, idx) => {
+        const delta = TARGET_MINS - r.sleepMins;
+        cumulative += delta;
+        const sleepStr = `${Math.floor(r.sleepMins / 60)}h ${r.sleepMins % 60}m`;
+        const deltaStr = delta > 0 ? `+${formatTime(delta)}` : (delta < 0 ? `-${formatTime(-delta)}` : `0분`);
+        const deltaClass = delta > 0 ? 'badge-deficit' : (delta < 0 ? 'badge-surplus' : '');
+        chartPoints.push({ date: r.date, cumHours: cumulative / 60, cumMins: cumulative });
+        tableRows.push(`<tr><td>${r.date}</td><td>${sleepStr}</td><td class="${deltaClass}">${deltaStr}</td><td><strong>${formatTime(cumulative)}</strong></td><td><button class="action-btn" onclick="deleteRecord(${idx})">✕</button></td></tr>`);
+      });
+      document.getElementById('currentDebtDisplay').textContent = formatTime(cumulative);
+      document.getElementById('historyTbody').innerHTML = tableRows.join('');
+      renderChart(chartPoints);
+    }
+    function renderChart(points) {
+      const svg = document.getElementById('chartContent');
+      svg.innerHTML = '';
+      if (!points.length) return;
+      const W = 600, H = 300, padL = 50, padR = 30, padT = 30, padB = 55;
+      const graphW = W - padL - padR, graphH = H - padT - padB;
+      const maxH = Math.max(10, Math.ceil(Math.max(...points.map(p => p.cumHours)) + 1));
+      const minH = Math.min(0, Math.floor(Math.min(...points.map(p => p.cumHours)) - 0.5));
+      const rangeH = (maxH - minH) || 1;
+      const getX = (idx) => padL + (points.length === 1 ? graphW / 2 : (idx / (points.length - 1)) * graphW);
+      const getY = (valHours) => padT + graphH - ((valHours - minH) / rangeH) * graphH;
+      for (let h = minH; h <= maxH; h += 2) {
+        const yPos = getY(h);
+        svg.innerHTML += `<line x1="${padL}" x2="${W - padR}" y1="${yPos}" y2="${yPos}" class="${h === 0 ? 'target-line' : 'grid-line'}" />`;
+        svg.innerHTML += `<text x="${padL - 8}" y="${yPos + 4}" text-anchor="end" class="axis-text">${h}h</text>`;
+      }
+      svg.innerHTML += `<text x="${padL}" y="16" class="axis-title">부채시간</text>`;
+      svg.innerHTML += `<line x1="${padL}" x2="${W - padR}" y1="${padT + graphH}" y2="${padT + graphH}" class="axis-line" />`;
+      svg.innerHTML += `<line x1="${padL}" x2="${padL}" y1="${padT}" y2="${padT + graphH}" class="axis-line" />`;
+      svg.innerHTML += `<text x="${W - padR}" y="${H - 8}" text-anchor="end" class="axis-title">날짜</text>`;
+      let pathD = '', areaD = '';
+      points.forEach((p, idx) => {
+        const x = getX(idx), y = getY(p.cumHours);
+        if (idx === 0) { pathD += `M ${x} ${y}`; areaD += `M ${x} ${padT + graphH} L ${x} ${y}`; }
+        else { pathD += ` L ${x} ${y}`; areaD += ` L ${x} ${y}`; }
+        svg.innerHTML += `<text x="${x}" y="${padT + graphH + 18}" text-anchor="middle" class="axis-text" font-weight="bold">${p.date}</text>`;
+      });
+      areaD += ` L ${getX(points.length - 1)} ${padT + graphH} Z`;
+      svg.innerHTML += `<path d="${areaD}" class="area-fill" /><path d="${pathD}" class="trend-line" />`;
+      points.forEach((p, idx) => {
+        const x = getX(idx), y = getY(p.cumHours);
+        svg.innerHTML += `<circle cx="${x}" cy="${y}" r="5" class="dot" />`;
+        svg.innerHTML += `<rect x="${x - 29}" y="${y - 28}" width="58" height="20" class="val-bubble" /><text x="${x}" y="${y - 14}" class="bubble-text">${formatTime(p.cumMins)}</text>`;
+      });
+    }
+    window.onload = init;
+  </script>
+</body>
+</html>
